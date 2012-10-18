@@ -9,7 +9,7 @@
 .leaflet-shadow-pane,
 .leaflet-marker-pane,
 .leaflet-popup-pane,
-.leaflet-overlay-pane svg,
+.leaflet-vector-root,
 .leaflet-zoom-box,
 .leaflet-image-layer,
 .leaflet-layer { /* TODO optimize classes */

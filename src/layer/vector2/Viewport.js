@@ -1,6 +1,10 @@
 
 L.Viewport = L.Class.extend({
 
+	statics: {
+		SVG_NS: 'http://www.w3.org/2000/svg'
+	},
+
 	options: {
 		padding:  L.Browser.mobile ? Math.max(0, Math.min(0.5,
 				(1280 / Math.max(window.innerWidth, window.innerHeight) - 1) / 2)) : 0.5,
@@ -8,7 +12,32 @@ L.Viewport = L.Class.extend({
 
 	initialize: function (map) {
 		this._map = map;
-		this._pane = map._panes.overlayPane;
+		this._pane = map._panes.overlayPane,
+
+		this.initRoot();
+
+		var root = this._root,
+			className = 'leaflet-vector-root leaflet-zoom-';
+
+		this._pane.appendChild(root);
+
+		if (map.options.zoomAnimation && L.Browser.any3d) {
+			map.on({
+				'zoomanim': this._animateZoom,
+				'zoomend': this._endAnimate
+			}, this);
+			root.setAttribute('class', className + 'animated');
+
+		} else {
+			root.setAttribute('class', className + 'hide');
+		}
+
+		map.on('moveend', this.update, this);
+		this.update();
+	},
+
+	initRoot: function () {
+		this._root = this.createElement('svg');
 	},
 
 	updateBounds: function () {
@@ -22,36 +51,14 @@ L.Viewport = L.Class.extend({
 		this._bounds = new L.Bounds(min, max);
 	},
 
-	initRoot: function () {
-		if (this._root) { return; }
-
-		var root = this._root = L.Clip.createElement('svg');
-
-		this._pane.appendChild(root);
-
-		if (this._map.options.zoomAnimation && L.Browser.any3d) {
-			this._map.on({
-				'zoomanim': this._animateZoom,
-				'zoomend': this._endAnimate
-			}, this);
-			root.setAttribute('class', ' leaflet-zoom-animated');
-
-		} else {
-			root.setAttribute('class', ' leaflet-zoom-hide');
-		}
-
-		this._map.on('moveend', this.update, this);
-		this.update();
-	},
-
 	update: function () {
 		if (this._zooming) { return; }
 
 		this.updateBounds();
 
-		var vp = this._pathViewport,
-			min = vp.min,
-			max = vp.max,
+		var bounds = this._bounds,
+			min = bounds.min,
+			max = bounds.max,
 			width = max.x - min.x,
 			height = max.y - min.y,
 			root = this._root;
@@ -72,6 +79,10 @@ L.Viewport = L.Class.extend({
 		}
 	},
 
+	createElement: function (name) {
+		return document.createElementNS(L.Viewport.SVG_NS, name);
+	},
+
 	_animateZoom: function (options) {
 		var	scale = this._map.getZoomScale(options.zoom),
 			offset = this._map._getCenterOffset(options.center),
@@ -87,3 +98,5 @@ L.Viewport = L.Class.extend({
 		this._zooming = false;
 	}
 });
+
+L.Browser.svg = !!(document.createElementNS && document.createElementNS(L.Viewport.SVG_NS, 'svg').createSVGRect);
