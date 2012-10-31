@@ -346,35 +346,40 @@ L.Mixin.Events.fire = L.Mixin.Events.fireEvent;
 
 
 (function () {
-	var ua = navigator.userAgent.toLowerCase(),
-		ie = !!window.ActiveXObject,
+
+	var ie = !!window.ActiveXObject,
+		// http://tanalin.com/en/articles/ie-version-js/
 		ie6 = ie && !window.XMLHttpRequest,
+		ie7 = ie && !document.querySelector,
+
+		// terrible browser detection to work around Safari / iOS / Android browser bugs
+		// see TileLayer._addTile and debug/hacks/jitter.html
+
+		ua = navigator.userAgent.toLowerCase(),
 		webkit = ua.indexOf("webkit") !== -1,
-		gecko = ua.indexOf("gecko") !== -1,
-		//Terrible browser detection to work around a safari / iOS / android browser bug. See TileLayer._addTile and debug/hacks/jitter.html
 		chrome = ua.indexOf("chrome") !== -1,
-		opera = window.opera,
 		android = ua.indexOf("android") !== -1,
 		android23 = ua.search("android [23]") !== -1,
-		mobile = typeof orientation !== undefined + '' ? true : false,
+
+		mobile = typeof orientation !== undefined + '',
+		msTouch = (window.navigator && window.navigator.msPointerEnabled && window.navigator.msMaxTouchPoints),
+		retina = (('devicePixelRatio' in window && window.devicePixelRatio > 1) ||
+				('matchMedia' in window && window.matchMedia("(min-resolution:144dpi)").matches)),
+
 		doc = document.documentElement,
 		ie3d = ie && ('transition' in doc.style),
-		webkit3d = webkit && ('WebKitCSSMatrix' in window) && ('m11' in new window.WebKitCSSMatrix()),
-		gecko3d = gecko && ('MozPerspective' in doc.style),
-		opera3d = opera && ('OTransition' in doc.style),
+		webkit3d = ('WebKitCSSMatrix' in window) && ('m11' in new window.WebKitCSSMatrix()),
+		gecko3d = 'MozPerspective' in doc.style,
+		opera3d = 'OTransition' in doc.style,
+		any3d = !window.L_DISABLE_3D && (ie3d || webkit3d || gecko3d || opera3d);
 
-		msTouch = (window.navigator && window.navigator.msPointerEnabled && window.navigator.msMaxTouchPoints);
 
 	var touch = !window.L_NO_TOUCH && (function () {
+
 		var startName = 'ontouchstart';
 
-		// IE10+ (We simulate these into touch* events in L.DomEvent and L.DomEvent.MsTouch)
-		if (msTouch) {
-			return true;
-		}
-
-		// WebKit, etc
-		if (startName in doc) {
+		// IE10+ (We simulate these into touch* events in L.DomEvent and L.DomEvent.MsTouch) or WebKit, etc.
+		if (msTouch || (startName in doc)) {
 			return true;
 		}
 
@@ -397,15 +402,12 @@ L.Mixin.Events.fire = L.Mixin.Events.fireEvent;
 		return supported;
 	}());
 
-	var retina = (('devicePixelRatio' in window && window.devicePixelRatio > 1) || ('matchMedia' in window && window.matchMedia("(min-resolution:144dpi)").matches));
 
 	L.Browser = {
-		ua: ua,
-		ie: ie,
 		ie6: ie6,
+		ie7: ie7,
 		webkit: webkit,
-		gecko: gecko,
-		opera: opera,
+
 		android: android,
 		android23: android23,
 
@@ -415,18 +417,19 @@ L.Mixin.Events.fire = L.Mixin.Events.fireEvent;
 		webkit3d: webkit3d,
 		gecko3d: gecko3d,
 		opera3d: opera3d,
-		any3d: !window.L_DISABLE_3D && (ie3d || webkit3d || gecko3d || opera3d),
+		any3d: any3d,
 
 		mobile: mobile,
 		mobileWebkit: mobile && webkit,
 		mobileWebkit3d: mobile && webkit3d,
-		mobileOpera: mobile && opera,
+		mobileOpera: mobile && window.opera,
 
 		touch: touch,
 		msTouch: msTouch,
 
 		retina: retina
 	};
+
 }());
 
 
@@ -682,7 +685,7 @@ L.DomUtil = {
 			value = el.currentStyle[style];
 		}
 
-		if (!value || value === 'auto') {
+		if ((!value || value === 'auto') && document.defaultView) {
 			var css = document.defaultView.getComputedStyle(el, null);
 			value = css ? css[style] : null;
 		}
@@ -696,10 +699,11 @@ L.DomUtil = {
 			left = 0,
 			el = element,
 			docBody = document.body,
-			pos;
+			pos,
+			ie7 = L.Browser.ie7;
 
 		do {
-			top += el.offsetTop || 0;
+			top  += el.offsetTop  || 0;
 			left += el.offsetLeft || 0;
 			pos = L.DomUtil.getStyle(el, 'position');
 
@@ -722,10 +726,30 @@ L.DomUtil = {
 			top  -= el.scrollTop  || 0;
 			left -= el.scrollLeft || 0;
 
+			//Webkit (and ie <= 7) handles RTL scrollLeft different to everyone else
+			// https://code.google.com/p/closure-library/source/browse/trunk/closure/goog/style/bidi.js
+			if (!L.DomUtil.documentIsLtr() && (L.Browser.webkit || ie7)) {
+				left += el.scrollWidth - el.clientWidth;
+
+				//ie7 shows the scrollbar by default and provides clientWidth counting it, so we need to add it back in if it is visible
+				// Scrollbar is on the left as we are RTL
+				if (ie7 && L.DomUtil.getStyle(el, 'overflow-y') !== 'hidden' && L.DomUtil.getStyle(el, 'overflow') !== 'hidden') {
+					left += 17;
+				}
+			}
+
 			el = el.parentNode;
 		} while (el);
 
 		return new L.Point(left, top);
+	},
+
+	documentIsLtr: function () {
+		if (!L.DomUtil._docIsLtrCached) {
+			L.DomUtil._docIsLtrCached = true;
+			L.DomUtil._docIsLtr = L.DomUtil.getStyle(document.body, 'direction') === "ltr";
+		}
+		return L.DomUtil._docIsLtr;
 	},
 
 	create: function (tagName, className, container) {
@@ -785,7 +809,7 @@ L.DomUtil = {
 		if ('opacity' in el.style) {
 			el.style.opacity = value;
 
-		} else if (L.Browser.ie) {
+		} else if ('filter' in el.style) {
 
 			var filter = false,
 				filterName = 'DXImageTransform.Microsoft.Alpha';
@@ -1161,6 +1185,13 @@ L.CRS = {
 		return 256 * Math.pow(2, zoom);
 	}
 };
+
+
+
+L.CRS.Simple = L.Util.extend({}, L.CRS, {
+	projection: L.Projection.LonLat,
+	transformation: new L.Transformation(1, 0, 1, 0)
+});
 
 
 
@@ -2555,7 +2586,7 @@ L.TileLayer.Canvas = L.TileLayer.extend({
 	},
 
 	_redrawTile: function (tile) {
-		this.drawTile(tile, tile._tilePoint, tile._zoom);
+		this.drawTile(tile, tile._tilePoint, this._map._zoom);
 	},
 
 	_createTileProto: function () {
@@ -2572,19 +2603,18 @@ L.TileLayer.Canvas = L.TileLayer.extend({
 		return tile;
 	},
 
-	_loadTile: function (tile, tilePoint, zoom) {
+	_loadTile: function (tile, tilePoint) {
 		tile._layer = this;
 		tile._tilePoint = tilePoint;
-		tile._zoom = zoom;
-
-		this.drawTile(tile, tilePoint, zoom);
+		
+		this._redrawTile(tile);
 
 		if (!this.options.async) {
 			this.tileDrawn(tile);
 		}
 	},
 
-	drawTile: function (tile, tilePoint, zoom) {
+	drawTile: function (tile, tilePoint) {
 		// override with rendering code
 	},
 
@@ -2880,7 +2910,9 @@ L.Marker = L.Class.extend({
 		clickable: true,
 		draggable: false,
 		zIndexOffset: 0,
-		opacity: 1
+		opacity: 1,
+		riseOnHover: false,
+		riseOffset: 250
 	},
 
 	initialize: function (latlng, options) {
@@ -2974,7 +3006,14 @@ L.Marker = L.Class.extend({
 			needOpacityUpdate = (this.options.opacity < 1);
 
 			L.DomUtil.addClass(this._icon, classToAdd);
+
+			if (options.riseOnHover) {
+				L.DomEvent
+					.on(this._icon, 'mouseover', this._bringToFront, this)
+					.on(this._icon, 'mouseout', this._resetZIndex, this);
+			}
 		}
+
 		if (!this._shadow) {
 			this._shadow = options.icon.createShadow();
 
@@ -3000,6 +3039,12 @@ L.Marker = L.Class.extend({
 	_removeIcon: function () {
 		var panes = this._map._panes;
 
+		if (this.options.riseOnHover) {
+			L.DomEvent
+				.off(this._icon, 'mouseover', this._bringToFront)
+				.off(this._icon, 'mouseout', this._resetZIndex);
+		}
+
 		panes.markerPane.removeChild(this._icon);
 
 		if (this._shadow) {
@@ -3016,7 +3061,13 @@ L.Marker = L.Class.extend({
 			L.DomUtil.setPosition(this._shadow, pos);
 		}
 
-		this._icon.style.zIndex = pos.y + this.options.zIndexOffset;
+		this._zIndex = pos.y + this.options.zIndexOffset;
+
+		this._resetZIndex();
+	},
+
+	_updateZIndex: function (offset) {
+		this._icon.style.zIndex = this._zIndex + offset;
 	},
 
 	_animateZoom: function (opt) {
@@ -3081,6 +3132,14 @@ L.Marker = L.Class.extend({
 		if (this._shadow) {
 			L.DomUtil.setOpacity(this._shadow, this.options.opacity);
 		}
+	},
+
+	_bringToFront: function () {
+		this._updateZIndex(this.options.riseOffset);
+	},
+
+	_resetZIndex: function () {
+		this._updateZIndex(0);
 	}
 });
 
@@ -3319,6 +3378,8 @@ L.Popup = L.Class.extend({
 	},
 
 	_updatePosition: function () {
+		if (!this._map) { return; }
+
 		var pos = this._map.latLngToLayerPoint(this._latlng),
 			is3d = L.Browser.any3d,
 			offset = this.options.offset;
@@ -3916,11 +3977,11 @@ L.Map.include({
 
 	_animatePathZoom: function (opt) {
 		var scale = this.getZoomScale(opt.zoom),
-			offset = this._getCenterOffset(opt.center).divideBy(1 - 1 / scale),
-			viewportPos = this.containerPointToLayerPoint(this.getSize().multiplyBy(-L.Path.CLIP_PADDING)),
-			origin = viewportPos.add(offset).round();
+			offset = this._getCenterOffset(opt.center),
+			translate = offset.multiplyBy(-scale)._add(this._pathViewport.min);
 
-		this._pathRoot.style[L.DomUtil.TRANSFORM] = L.DomUtil.getTranslateString((origin.multiplyBy(-1).add(L.DomUtil.getPosition(this._pathRoot)).multiplyBy(scale).add(origin))) + ' scale(' + scale + ') ';
+		this._pathRoot.style[L.DomUtil.TRANSFORM] =
+				L.DomUtil.getTranslateString(translate) + ' scale(' + scale + ') ';
 
 		this._pathZooming = true;
 	},
