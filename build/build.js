@@ -32,7 +32,7 @@ function getFiles(compsBase32) {
 
 	if (compsBase32) {
 		comps = parseInt(compsBase32, 32).toString(2).split('');
-		console.log('Managing dependencies...')
+		console.log('Managing dependencies...');
 	}
 
 	function addFiles(srcs) {
@@ -160,14 +160,14 @@ exports.test = function() {
 	    testConfig = {configFile : __dirname + '/../spec/testacular.conf.js'};
 
 	testConfig.browsers = ['PhantomJS'];
-	isArgv('--chrome') &&  testConfig.browsers.push('Chrome');
-	isArgv('--ff') && testConfig.browsers.push('Firefox');
+	if (isArgv('--chrome'))  testConfig.browsers.push('Chrome');
+	if (isArgv('--ff')) testConfig.browsers.push('Firefox');
 
 	// will work only with new testacular that supports code coverage (today it's in master)
 	if (isArgv('--cov')) { // temporary hack until testacular with coverage becomes stable
 		testacular = require('../node_modules/testacular/lib/index.js'); // use local testacular
 		testConfig.preprocessors = {
-			'**/src/**/*.js': 'coverage',
+			'**/src/**/*.js': 'coverage'
 		};
 		testConfig.coverageReporter = {
 			type : 'html',
@@ -181,4 +181,4 @@ exports.test = function() {
 	function isArgv(optName){
 		return process.argv.indexOf(optName) !== -1;
 	}
-}
+};
