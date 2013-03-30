@@ -71,6 +71,7 @@ L.TileLayer = L.Class.extend({
 			map.on('move', this._limitedUpdate, this);
 		}
 
+        this._map._activeLayers[L.stamp(this)] = this;
 		this._reset();
 		this._update();
 	},
@@ -92,6 +93,7 @@ L.TileLayer = L.Class.extend({
 			map.off('move', this._limitedUpdate, this);
 		}
 
+        delete this._map._activeLayers[L.stamp(this)];
 		this._container = null;
 		this._map = null;
 	},

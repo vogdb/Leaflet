@@ -138,7 +138,11 @@ L.Map = L.Class.extend({
 		return this.panBy(new L.Point(dx, dy, true));
 	},
 
-	addLayer: function (layer) {
+    getActiveLayers: function () {
+        return this._activeLayers;
+    },
+
+    addLayer: function (layer) {
 		// TODO method is too big, refactor
 
 		var id = L.stamp(layer);
@@ -469,6 +473,7 @@ L.Map = L.Class.extend({
 		layers = layers ? (L.Util.isArray(layers) ? layers : [layers]) : [];
 
 		this._layers = {};
+        this._activeLayers = {};
 		this._zoomBoundLayers = {};
 		this._tileLayersNum = 0;
 
