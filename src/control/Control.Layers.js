@@ -46,6 +46,17 @@ L.Control.Layers = L.Control.extend({
 		    .off('layerremove', this._onLayerChange);
 	},
 
+    getActiveLayers: function () {
+        var activeLayers = this._map.getActiveLayers();
+        var result = [];
+        for (var layerId in activeLayers) {
+            if (this._layers.hasOwnProperty(layerId)) {
+                result.push(this._layers[layerId].name);
+            }
+        }
+        return result;
+	},
+
 	addBaseLayer: function (layer, name) {
 		this._addLayer(layer, name);
 		this._update();
