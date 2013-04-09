@@ -1,3 +1,37 @@
+This is a fork of Leaflet library which adds new method for L.control.layers **control.getActiveLayers()** and L.Map **map.getActiveLayers()**.
+Example of usage:
+
+    var cloudmadeUrl = 'http://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
+        cloudmadeAttribution = '&copy; <a href="http://openstreetmap.org">OpenStreetMap</a> contributors, <a href="http://creativecommons.org/licenses/by-sa/2.0/">CC-BY-SA</a>';
+
+    var minimal   = L.tileLayer(cloudmadeUrl, {styleId: 22677, attribution: cloudmadeAttribution}),
+        midnight  = L.tileLayer(cloudmadeUrl, {styleId: 999,   attribution: cloudmadeAttribution}),
+        motorways = L.tileLayer(cloudmadeUrl, {styleId: 46561, attribution: cloudmadeAttribution});
+
+    var map = L.map('map', {
+        center: new L.LatLng(39.73, -104.99),
+        zoom: 10,
+        layers: [minimal, motorways]
+    });
+
+    var baseMaps = {
+        "Minimal": minimal,
+        "Night View": midnight
+    };
+
+    var overlayMaps = {
+        "Motorways": motorways
+    };
+
+    var control = L.control.layers(baseMaps, overlayMaps)
+    control.addTo(map);
+    //activeLayers will be an one-dimensional array which would be empty if map doesn't have any layer enabled.
+    var activeLayers = control.getActiveLayers()
+    for(var layerIndex = 0; layerIndex < activeLayers.length; layerIndex++){
+        console.log('active layerName: ' + activeLayers[layerIndex]);
+    }
+
+**Important!** I didn't find L.Map getActiveLayers to be very useful because map doesn't hold information about layer's names. All map's information about layers is quite private so be careful with it.
 <img src="http://leafletjs.com/docs/images/logo.png" alt="Leaflet" />
 
 Leaflet is a modern open-source JavaScript library for **mobile-friendly interactive maps**.
