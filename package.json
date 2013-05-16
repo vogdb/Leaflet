@@ -1,0 +1,18 @@
+{
+    "name": "leaflet",
+    "version": "0.5.1",
+    "description": "This is a fork of the Leaflet library v0.5.1. The fork was created only to make v0.5.1 compatible with npm. It adds only package.json file.",
+    "dependencies": {
+    },
+    "devDependencies": {
+        "jshint": "~0.9.1",
+        "uglify-js": "~2.2.5"
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/vogdb/Leaflet.git"
+    },
+    "license": "BSD",
+    "readmeFilename": "README.md",
+    "gitHead": "c1d410f2703f0832618c997225e7360f6a292c58"
+}
